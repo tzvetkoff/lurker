@@ -1200,12 +1200,14 @@ function wireVisibility() {
   visibilityWired = true;
   document.addEventListener('visibilitychange', () => {
     if (document.hidden) {
-      hiddenSince = Date.now();
+      if (hiddenSince === null) hiddenSince = Date.now();
       return;
     }
     const elapsed = hiddenSince ? Date.now() - hiddenSince : 0;
-    hiddenSince = null;
-    if (elapsed > HIDDEN_RESNAPSHOT_MS) refreshSnapshot();
+    if (elapsed > HIDDEN_RESNAPSHOT_MS) {
+      hiddenSince = null;
+      refreshSnapshot()
+    };
   });
 }
 
