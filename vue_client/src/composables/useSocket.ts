@@ -68,7 +68,7 @@ let reconnectAttempts = 0;
 // whether a connection lasted long enough to count as healthy.
 let socketOpenedAt: number | null = null;
 const RECONNECT_BASE_MS = 1000;
-const RECONNECT_MAX_MS = 30_000;
+const RECONNECT_MAX_MS = 5_000;
 // How long a socket must stay open before we treat it as a *successful*
 // connection and reset the backoff.
 //
@@ -86,7 +86,7 @@ const RECONNECT_MAX_MS = 30_000;
 // connection, resets the counter, and retries in ~1s. Which is the unthrottled
 // loop. 60s keeps a comfortable margin; a normal session lasts hours, so the
 // only connections this denies a fast retry to are ones that died young.
-const RECONNECT_STABLE_MS = 60_000;
+const RECONNECT_STABLE_MS = 15_000;
 // How long to wait before the next reconnect: exponential 1s→30s with ±25%
 // jitter, matching the iOS client's policy.
 //
@@ -106,7 +106,7 @@ const openHandlers = new Set<() => void>();
 // { ok, error } when the server returns a send-result, on socket close, or on
 // timeout — whichever fires first.
 const pendingAcks = new Map<string, AckResolver>();
-const ACK_TIMEOUT_MS = 8000;
+const ACK_TIMEOUT_MS = 4_000;
 // Highest event id this client has ever received in any buffer. Sent on
 // reconnect as `?since=N` so the server can ship just the gap instead of
 // re-issuing the whole last-50-per-buffer backlog. Per-buffer dedupe in
@@ -122,7 +122,7 @@ export function onSocketOpen(handler: () => void): () => void {
 // snapshot on return. This collapses a long queue of buffered live events
 // (which would otherwise drip into the UI one frame at a time) into a single
 // atomic backlog replace — i.e. the view "snaps" to current state.
-const HIDDEN_RESNAPSHOT_MS = 30_000;
+const HIDDEN_RESNAPSHOT_MS = 10_000;
 let hiddenSince: number | null = null;
 let visibilityWired = false;
 
@@ -144,7 +144,7 @@ let visibilityWired = false;
 // server re-sends a snapshot on connect), but there's no reason to shave
 // seconds off a detector whose true-positive alternative is a minutes-long
 // TCP timeout.
-const LIVENESS_PROBE_TIMEOUT_MS = 10_000;
+const LIVENESS_PROBE_TIMEOUT_MS = 5_000;
 let livenessProbeTimer: ReturnType<typeof setTimeout> | null = null;
 let lastMessageAt = 0;
 
@@ -1200,12 +1200,14 @@ function wireVisibility() {
   visibilityWired = true;
   document.addEventListener('visibilitychange', () => {
     if (document.hidden) {
-      hiddenSince = Date.now();
+      if (hiddenSince === null) hiddenSince = Date.now();
       return;
     }
     const elapsed = hiddenSince ? Date.now() - hiddenSince : 0;
-    hiddenSince = null;
-    if (elapsed > HIDDEN_RESNAPSHOT_MS) refreshSnapshot();
+    if (elapsed > HIDDEN_RESNAPSHOT_MS) {
+      hiddenSince = null;
+      refreshSnapshot()
+    };
   });
 }
 
